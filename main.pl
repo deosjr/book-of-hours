@@ -17,13 +17,14 @@ run :-
 */
 	get_assistance(long_tower_first_floor, S),
 	list_to_set(S, Set), % todo ensure no duplicates instead of postprocessing?
-	writeln(Set).
+	foreach( member(X, Set), writeln(X) ).
 	%include(member(memory(sunny)), Set, Steps),
 	%writeln(Steps).
 
 get_assistance(Lock, Steps) :-
 	findall(List, assistance_steps(Lock, List), Steps).
 
+/*
 assistance_steps(Lock, Steps) :-
 	lock(Lock, _),
 	slots(Lock, [Slot], []),
@@ -31,6 +32,7 @@ assistance_steps(Lock, Steps) :-
 	Card = card(Name, _),
 	satisfy(Slot, Card),
 	Steps = [assistant(Name)].
+*/
 
 assistance_steps(Lock, Steps) :-
 	lock(Lock, _),
@@ -38,27 +40,14 @@ assistance_steps(Lock, Steps) :-
 	slots(talk, [To, About], [Pred]),
 	card(Assistant),
 	satisfy(To, Assistant),
-	memory(Memory),
-	satisfy(About, Memory),
-	call(Pred, Assistant, Memory, Enhanced),
-	satisfy(Slot, Enhanced),
+	card(Enhancement),
 	Assistant = card(Name, _),
-	Memory = card(MemName, _),
-	Steps = [assistant(Name), memory(MemName)].
-
-assistance_steps(Lock, Steps) :-
-	lock(Lock, _),
-	slots(Lock, [Slot], []),
-	slots(talk, [To, About], [Pred]),
-	card(Assistant),
-	satisfy(To, Assistant),
-	beverage(Beverage),
-	satisfy(About, Beverage),
-	call(Pred, Assistant, Beverage, Enhanced),
+	Enhancement = card(CardName, _),
+	CardName \= lesson(_), % dont want to use lessons
+	satisfy(About, Enhancement),
+	call(Pred, Assistant, Enhancement, Enhanced),
 	satisfy(Slot, Enhanced),
-	Assistant = card(Name, _),
-	Beverage = card(BevName, _),
-	Steps = [assistant(Name), beverage(BevName)].
+	Steps = [assistant(Name), card(CardName)].
 
 card(C) :-
 	card(Name, Attrs),
@@ -70,19 +59,36 @@ slots(Name, Slots, []) :-
 	Slots = [slot(unlock, [assistance], Reqs, [])].
 
 % this is a follow-up, modelled as two slots
-% todo: tools, even souls?? yep. souls is called collaboration. tools is exalted:tool
+slots(talk, [To, About], [enhance_soul]) :-
+	To = slot(talk, [], [assistance], [collaboration]),
+	About = slot(collaborate, [], [soul], []).
 slots(talk, [To, About], [enhance_memory]) :-
 	To = slot(talk, [], [assistance], [exalted(memory)]),
 	About = slot(collaborate, [], [memory], []).
+slots(talk, [To, About], [enhance_tool]) :-
+	To = slot(talk, [], [assistance], [exalted(tool)]),
+	About = slot(collaborate, [], [tool], []).
 slots(talk, [To, About], [enhance_beverage]) :-
 	To = slot(talk, [], [assistance], [exalted(beverage)]),
 	About = slot(collaborate, [], [beverage], []).
+
+enhance_soul(Assistent, Soul, Out) :-
+	Assistent = card(Name, Attrs),
+	Soul = card(_, SoulAttrs),
+	enhance_principles(Attrs, SoulAttrs, NewAttrs),
+	Out = card(Name, [collaboration|NewAttrs]).
 
 enhance_memory(Assistent, Memory, Out) :-
 	Assistent = card(Name, Attrs),
 	Memory = card(_, MemAttrs),
 	enhance_principles(Attrs, MemAttrs, NewAttrs),
 	Out = card(Name, [exalted(memory)|NewAttrs]).
+
+enhance_tool(Assistent, Tool, Out) :-
+	Assistent = card(Name, Attrs),
+	Tool = card(_, ToolAttrs),
+	enhance_principles(Attrs, ToolAttrs, NewAttrs),
+	Out = card(Name, [exalted(tool)|NewAttrs]).
 
 enhance_beverage(Assistent, Beverage, Out) :-
 	Assistent = card(Name, Attrs),
